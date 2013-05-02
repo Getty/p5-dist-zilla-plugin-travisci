@@ -11,8 +11,8 @@ use File::Slurp;
 use YAML qw( DumpFile );
 use Path::Class;
 
-our @phases = ( ( map { my $phase = $_; ('before_'.$phase, $phase, 'after_'.$phase) } qw( install script ) ), 'after_success', 'after_failure', 'with_script' );
-our @emptymvarrayattr = qw( notify_email notify_irc requires base_env script_env );
+our @phases = ( ( map { my $phase = $_; ('before_'.$phase, $phase, 'after_'.$phase) } qw( install script ) ), 'after_success', 'after_failure' );
+our @emptymvarrayattr = qw( notify_email notify_irc requires env script_env extra_dep );
 
 has $_ => ( is => 'ro', isa => 'ArrayRef[Str]', default => sub { [] } ) for (@phases, @emptymvarrayattr);
 
@@ -67,7 +67,7 @@ sub build_travis_yml {
 		$travisyml{notifications} = \%notifications;
 	}
 
-	my @env_exports = $self->_get_exports(@core_env, @{$self->base_env});
+	my @env_exports = $self->_get_exports(@core_env, @{$self->env});
 
 	my %phases_commands = map { $_ => $self->$_ } @phases;
 
@@ -84,6 +84,11 @@ sub build_travis_yml {
 			"dzil authordeps | grep -vP '[^\\w:]' | xargs -n 5 -P 10 cpanm ".$verbose." ".($self->test_authordeps ? "" : " --notest ")." --skip-satisfied",
 			"dzil listdeps | grep -vP '[^\\w:]' | cpanm ".$verbose." ".($self->test_deps ? "" : " --notest ")." --skip-satisfied",
 		);
+		if (@{$self->extra_dep}) {
+			push @{$phases_commands{install}}, (
+				"cpanm ".$verbose." ".($self->test_deps ? "" : " --notest ")." ".join(" ",@{$self->extra_dep}),
+			);
+		}
 	}
 
 	unless (@{$phases_commands{script}}) {
@@ -107,6 +112,8 @@ sub build_travis_yml {
 	);
 
 	push @{$phases_commands{install}}, @{delete $phases_commands{after_install}};
+
+	unshift @{$phases_commands{script}}, $self->_get_exports(@{$self->script_env});
 
 	my $first = 0;
 	for (@phases) {
@@ -132,8 +139,54 @@ __PACKAGE__->meta->make_immutable;
 
 1;
 
+
+=head1 SYNOPSIS
+
+  [TravisCI]
+  perl_version = 5.10
+  perl_version = 5.12
+  perl_version = 5.14
+  perl_version = 5.16
+  notify_email = other@email.then.default
+  irc_template = %{branch}#%{build_number} by %{author}: %{message} (%{build_url})
+  requires = libdebian-package-dev
+  extra_dep = Extra::Module
+  env = KEY=VALUE
+  script_env = SCRIPTKEY=SCRIPTONLY
+  before_install = echo "After the installation of requirements before perl modules"
+  install = echo "Replace our procedure to install the perl modules"
+  after_install = echo "In the install phase after perl modules are installed"
+  before_script = echo "Do something before the dzil smoke is called"
+  script = echo "replace our call for dzil smoke"
+  after_script = echo "another test script to run, probably?"
+  after_success = echo "yeah!"
+  after_failure = echo "Buh!! :("
+  verbose = 0
+  test_deps = 0
+  test_authordeps = 0
+  no_notify_email = 0
+
+=head1 DESCRIPTION
+
+Adds a B<.travis.yml> to your repository on B<build> or B<release>. This is a
+very early release, more features are planned and upcoming, including more
+documentation :).
+
 =head1 BASED ON
 
   Based on code from L<Dist::Zilla::TravisCI>.
 
-=cut
+=head1 SUPPORT
+
+IRC
+
+  Join #distzilla on irc.perl.org. Highlight Getty for fast reaction :).
+
+Repository
+
+  http://github.com/Getty/p5-dist-zilla-plugin-travisci
+  Pull request and additional contributors are welcome
+ 
+Issue Tracker
+
+  http://github.com/Getty/p5-dist-zilla-plugin-travisci/issues
