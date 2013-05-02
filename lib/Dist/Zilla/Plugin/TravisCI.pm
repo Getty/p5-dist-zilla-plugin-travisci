@@ -174,7 +174,7 @@ documentation :).
 
 =head1 BASED ON
 
-  Based on code from L<Dist::Zilla::TravisCI>.
+This plugin is based on code of L<Dist::Zilla::TravisCI>.
 
 =head1 SUPPORT
 
