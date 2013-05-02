@@ -10,7 +10,6 @@ with 'Dist::Zilla::Role::InstallTool';
 use File::Slurp;
 use YAML qw( DumpFile );
 use Path::Class;
-use namespace::autoclean;
 
 our @phases = ( ( map { my $phase = $_; ('before_'.$phase, $phase, 'after_'.$phase) } qw( install script ) ), 'after_success', 'after_failure', 'with_script' );
 our @emptymvarrayattr = qw( notify_email notify_irc requires base_env script_env );
