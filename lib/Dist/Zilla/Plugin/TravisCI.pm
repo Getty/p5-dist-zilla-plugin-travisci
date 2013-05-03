@@ -16,7 +16,7 @@ our @emptymvarrayattr = qw( notify_email notify_irc requires env script_env extr
 
 has $_ => ( is => 'ro', isa => 'ArrayRef[Str]', default => sub { [] } ) for (@phases, @emptymvarrayattr);
 
-our @bools = qw( verbose test_deps test_authordeps no_notify_email );
+our @bools = qw( verbose test_deps test_authordeps no_notify_email coveralls );
 
 has $_ => ( is => 'ro', isa => 'Bool', default => sub { 0 } ) for @bools;
 
@@ -31,7 +31,7 @@ has perl_version  => ( is => 'ro', isa => 'ArrayRef[Str]', default => sub { [
    "5.10",
 ] } );
 
-our @core_env = ("AUTOMATED_TESTING=1 HARNESS_OPTIONS=j10:c HARNESS_TIMER=1");
+our @core_env = ("HARNESS_OPTIONS=j10:c HARNESS_TIMER=1");
 
 around mvp_multivalue_args => sub {
 	my ($orig, $self) = @_;
@@ -67,8 +67,6 @@ sub build_travis_yml {
 		$travisyml{notifications} = \%notifications;
 	}
 
-	my @env_exports = $self->_get_exports(@core_env, @{$self->env});
-
 	my %phases_commands = map { $_ => $self->$_ } @phases;
 
 	my $verbose = $self->verbose ? ' --verbose ' : ' --quiet ';
@@ -78,15 +76,31 @@ sub build_travis_yml {
 		'git config --global user.email $HOSTNAME":not-for-mail@travis-ci.org"',
 	);
 
+	my @extra_deps = @{$self->extra_dep};
+
+	my $needs_cover;
+
+	if ($self->coveralls) {
+		push @extra_deps, 'Devel::Cover::Report::Coveralls';
+		unshift @{$phases_commands{after_success}}, 'cover -report coveralls';
+		$needs_cover = 1;
+	}
+
+	if ($needs_cover) {
+		push @{$self->env}, 'HARNESS_PERL_SWITCHES=-MDevel::Cover=-db,$TRAVIS_BUILD_DIR/cover_db';
+	}
+
+	my @env_exports = $self->_get_exports(@core_env, @{$self->env});
+
 	unless (@{$phases_commands{install}}) {
 		push @{$phases_commands{install}}, (
 			"cpanm ".$verbose." --notest --skip-satisfied Dist::Zilla",
 			"dzil authordeps | grep -vP '[^\\w:]' | xargs -n 5 -P 10 cpanm ".$verbose." ".($self->test_authordeps ? "" : " --notest ")." --skip-satisfied",
 			"dzil listdeps | grep -vP '[^\\w:]' | cpanm ".$verbose." ".($self->test_deps ? "" : " --notest ")." --skip-satisfied",
 		);
-		if (@{$self->extra_dep}) {
+		if (@extra_deps) {
 			push @{$phases_commands{install}}, (
-				"cpanm ".$verbose." ".($self->test_deps ? "" : " --notest ")." ".join(" ",@{$self->extra_dep}),
+				"cpanm ".$verbose." ".($self->test_deps ? "" : " --notest ")." ".join(" ",@extra_deps),
 			);
 		}
 	}
@@ -165,6 +179,7 @@ __PACKAGE__->meta->make_immutable;
   test_deps = 0
   test_authordeps = 0
   no_notify_email = 0
+  coveralls = 0
 
 =head1 DESCRIPTION
 
