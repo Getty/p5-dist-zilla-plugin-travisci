@@ -7,9 +7,6 @@ use Dist::Zilla::File::InMemory;
 
 with 'Dist::Zilla::Role::InstallTool';
 
-use File::Slurp;
-use YAML qw( DumpFile );
-use Path::Class;
 
 our @phases = ( ( map { my $phase = $_; ('before_'.$phase, $phase, 'after_'.$phase) } qw( install script ) ), 'after_success', 'after_failure' );
 our @emptymvarrayattr = qw( notify_email notify_irc requires env script_env extra_dep );
@@ -49,6 +46,9 @@ sub _get_exports { shift; map { "export ".$_ } @_ }
 
 sub build_travis_yml {
 	my ($self, $is_build_branch) = @_;
+
+	require YAML;
+	require Path::Class;
 
 	my $zilla = $self->zilla;
 	my %travisyml = ( language => "perl", perl => $self->perl_version );
@@ -144,7 +144,7 @@ sub build_travis_yml {
 		}
 	}
 
-	DumpFile(Path::Class::File->new($zilla->built_in, '.travis.yml')->stringify, \%travisyml);
+	YAML::DumpFile(Path::Class::File->new($zilla->built_in, '.travis.yml')->stringify, \%travisyml);
 
 }
 
