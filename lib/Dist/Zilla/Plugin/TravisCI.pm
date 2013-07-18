@@ -48,7 +48,6 @@ sub build_travis_yml {
 	my ($self, $is_build_branch) = @_;
 
 	require YAML;
-	require Path::Class;
 
 	my $zilla = $self->zilla;
 	my %travisyml = ( language => "perl", perl => $self->perl_version );
@@ -144,7 +143,7 @@ sub build_travis_yml {
 		}
 	}
 
-	YAML::DumpFile(Path::Class::File->new($zilla->built_in, '.travis.yml')->stringify, \%travisyml);
+	YAML::DumpFile($zilla->root->file('.travis.yml')->stringify, \%travisyml);
 
 }
 
