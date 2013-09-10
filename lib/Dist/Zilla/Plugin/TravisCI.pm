@@ -25,6 +25,7 @@ has irc_template  => ( is => 'ro', isa => 'ArrayRef[Str]', default => sub { [
 ] } );
 
 has perl_version  => ( is => 'ro', isa => 'ArrayRef[Str]', default => sub { [
+   "5.18",
    "5.16",
    "5.14",
    "5.12",
