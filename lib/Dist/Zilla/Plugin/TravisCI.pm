@@ -7,13 +7,12 @@ use Dist::Zilla::File::InMemory;
 
 with 'Dist::Zilla::Role::InstallTool';
 
-
 our @phases = ( ( map { my $phase = $_; ('before_'.$phase, $phase, 'after_'.$phase) } qw( install script ) ), 'after_success', 'after_failure' );
 our @emptymvarrayattr = qw( notify_email notify_irc requires env script_env extra_dep );
 
 has $_ => ( is => 'ro', isa => 'ArrayRef[Str]', default => sub { [] } ) for (@phases, @emptymvarrayattr);
 
-our @bools = qw( verbose test_deps test_authordeps no_notify_email coveralls );
+our @bools = qw( verbose test_deps no_notify_email coveralls );
 
 has $_ => ( is => 'ro', isa => 'Bool', default => sub { 0 } ) for @bools;
 
@@ -94,8 +93,8 @@ sub build_travis_yml {
 
 	unless (@{$phases_commands{install}}) {
 		push @{$phases_commands{install}}, (
-			"cpanm ".$verbose." --notest --skip-installed Dist::Zilla",
-			"dzil authordeps | grep -ve '^\\W' | xargs -n 5 -P 10 cpanm ".$verbose." ".($self->test_authordeps ? "" : " --notest ")." --skip-installed",
+			"cpanm ".$verbose." --notest --skip-installed Dist::Zilla App::CPAN::Fresh",
+			"dzil authordeps | grep -ve '^\\W' | xargs -n 5 -P 10 cpanf",
 			"dzil listdeps | grep -ve '^\\W' | cpanm ".$verbose." ".($self->test_deps ? "" : " --notest ")." --skip-installed",
 		);
 		if (@extra_deps) {
