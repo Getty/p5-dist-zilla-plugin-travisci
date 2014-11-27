@@ -8,7 +8,7 @@ use Dist::Zilla::File::InMemory;
 with 'Dist::Zilla::Role::InstallTool';
 
 our @phases = ( ( map { my $phase = $_; ('before_'.$phase, $phase, 'after_'.$phase) } qw( install script ) ), 'after_success', 'after_failure' );
-our @emptymvarrayattr = qw( notify_email notify_irc deb_deps env script_env extra_dep );
+our @emptymvarrayattr = qw( notify_email notify_irc requires env script_env extra_dep );
 
 has $_ => ( is => 'ro', isa => 'ArrayRef[Str]', default => sub { [] } ) for (@phases, @emptymvarrayattr);
 
@@ -117,10 +117,8 @@ sub build_travis_yml {
 		];
 	}
 
-  use DDP; p($self->deb_deps);
-
-	if (@{$self->deb_deps}) {
-		unshift @{$phases_commands{before_install}}, "sudo apt-get install -qq ".join(" ",@{$self->deb_deps});
+	if (@{$self->requires}) {
+		unshift @{$phases_commands{before_install}}, "sudo apt-get install -qq ".join(" ",@{$self->requires});
 	}
 
 	unshift @{$phases_commands{before_install}}, (
