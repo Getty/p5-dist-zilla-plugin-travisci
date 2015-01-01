@@ -144,10 +144,16 @@ sub build_travis_yml {
 		}
 	}
 
+  %travisyml = $self->modify_travis_yml(%travisyml);
+
 	YAML::DumpFile($zilla->root->file('.travis.yml')->stringify, \%travisyml);
 
 }
 
+sub modify_travis_yml {
+  my ( $self, %args ) = @_;
+  return %args;
+}
 
 __PACKAGE__->meta->make_immutable;
 
