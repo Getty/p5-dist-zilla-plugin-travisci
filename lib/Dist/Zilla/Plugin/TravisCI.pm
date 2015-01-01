@@ -2,10 +2,10 @@ package Dist::Zilla::Plugin::TravisCI;
 # ABSTRACT: Integrating the generation of .travis.yml into your dzil
 
 use Moose;
+use Path::Tiny qw( path );
+use Dist::Zilla::File::FromCode;
 
-use Dist::Zilla::File::InMemory;
-
-with 'Dist::Zilla::Role::InstallTool';
+with 'Dist::Zilla::Role::FileGatherer','Dist::Zilla::Role::AfterBuild';
 
 our @phases = ( ( map { my $phase = $_; ('before_'.$phase, $phase, 'after_'.$phase) } qw( install script ) ), 'after_success', 'after_failure' );
 our @emptymvarrayattr = qw( notify_email notify_irc requires env script_env extra_dep );
@@ -29,26 +29,46 @@ has perl_version  => ( is => 'ro', isa => 'ArrayRef[Str]', default => sub { [
    "5.10",
 ] } );
 
+
+has 'write_to' => ( is => 'ro', isa => 'ArrayRef[Str]', default => sub { [ 'root' ] } );
+
 our @core_env = ("HARNESS_OPTIONS=j10:c HARNESS_TIMER=1");
 
 around mvp_multivalue_args => sub {
 	my ($orig, $self) = @_;
 
 	my @start = $self->$orig;
-	return @start, @phases, @emptymvarrayattr, qw( irc_template perl_version );
+  return @start, @phases, @emptymvarrayattr, qw( irc_template perl_version write_to );
 };
 
-sub setup_installer {
-   my $self = shift;
-   $self->build_travis_yml;
+sub gather_files {
+  my $self = shift;
+  return unless grep { $_ eq 'build' } @{ $self->write_to };
+  require YAML;
+  my $file = Dist::Zilla::File::FromCode->new(
+    name              => '.travis.yml',
+    code_return_type  => 'text',        # YAML::Dump returns text
+    code              => sub {
+      my $structure = $self->build_travis_yml;
+      return YAML::Dump($structure);
+    },
+  );
+  $self->add_file($file);
+  return;
+}
+
+sub after_build {
+  my $self = shift;
+  return unless grep { $_ eq 'root' } @{ $self->write_to };
+  require YAML;
+  YAML::DumpFile(path($self->zilla->root,'.travis.yml')->stringify,  $self->build_travis_yml );
+  return;
 }
 
 sub _get_exports { shift; map { "export ".$_ } @_ }
 
 sub build_travis_yml {
 	my ($self, $is_build_branch) = @_;
-
-	require YAML;
 
 	my $zilla = $self->zilla;
 	my %travisyml = ( language => "perl", perl => $self->perl_version );
@@ -145,9 +165,7 @@ sub build_travis_yml {
 	}
 
   %travisyml = $self->modify_travis_yml(%travisyml);
-
-	YAML::DumpFile($zilla->root->file('.travis.yml')->stringify, \%travisyml);
-
+  return \%travisyml;
 }
 
 sub modify_travis_yml {
