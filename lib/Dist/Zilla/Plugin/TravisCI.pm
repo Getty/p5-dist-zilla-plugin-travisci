@@ -49,9 +49,7 @@ sub gather_files {
     name              => '.travis.yml',
     code_return_type  => 'text',        # YAML::Dump returns text
     code              => sub {
-      my $structure = $self->build_travis_yml;
-      local $YAML::QuoteNumericStrings=1;
-      return YAML::Dump($structure);
+      return $self->build_travis_yml_str;
     },
   );
   $self->add_file($file);
@@ -61,13 +59,19 @@ sub gather_files {
 sub after_build {
   my $self = shift;
   return unless grep { $_ eq 'root' } @{ $self->write_to };
-  require YAML;
-  local $YAML::QuoteNumericStrings=1;
-  YAML::DumpFile(path($self->zilla->root,'.travis.yml')->stringify, $self->build_travis_yml);
+  path($self->zilla->root,'.travis.yml')->spew_utf8($self->build_travis_yml_str);
   return;
 }
 
 sub _get_exports { shift; map { "export ".$_ } @_ }
+
+sub build_travis_yml_str {
+  my ($self) = @_;
+  my $structure = $self->build_travis_yml;
+  require YAML;
+  local $YAML::QuoteNumericStrings=1;
+  return YAML::Dump($structure);
+}
 
 sub build_travis_yml {
 	my ($self, $is_build_branch) = @_;
