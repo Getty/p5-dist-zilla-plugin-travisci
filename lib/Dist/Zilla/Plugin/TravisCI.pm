@@ -50,6 +50,7 @@ sub gather_files {
     code_return_type  => 'text',        # YAML::Dump returns text
     code              => sub {
       my $structure = $self->build_travis_yml;
+      local $YAML::QuoteNumericStrings=1;
       return YAML::Dump($structure);
     },
   );
@@ -61,7 +62,8 @@ sub after_build {
   my $self = shift;
   return unless grep { $_ eq 'root' } @{ $self->write_to };
   require YAML;
-  YAML::DumpFile(path($self->zilla->root,'.travis.yml')->stringify,  $self->build_travis_yml );
+  local $YAML::QuoteNumericStrings=1;
+  YAML::DumpFile(path($self->zilla->root,'.travis.yml')->stringify, $self->build_travis_yml);
   return;
 }
 
