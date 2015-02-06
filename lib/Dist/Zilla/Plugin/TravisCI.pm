@@ -32,6 +32,8 @@ has perl_version  => ( is => 'ro', isa => 'ArrayRef[Str]', default => sub { [
 
 has 'write_to' => ( is => 'ro', isa => 'ArrayRef[Str]', default => sub { [ 'root' ] } );
 
+has 'modifier_script' => ( is => 'ro', isa => 'Str', predicate => 'has_modifier_script' );
+
 our @core_env = ("HARNESS_OPTIONS=j10:c HARNESS_TIMER=1");
 
 around mvp_multivalue_args => sub {
@@ -171,7 +173,37 @@ sub build_travis_yml {
 	}
 
   %travisyml = $self->modify_travis_yml(%travisyml);
+  %travisyml = $self->script_modify_travis_yml(%travisyml);
   return \%travisyml;
+}
+
+sub script_modify_travis_yml {
+  my ( $self, %hash ) = @_;
+  return %hash unless $self->has_modifier_script;
+  my $file = path( $self->zilla->root, $self->modifier_script );
+  if ( not $file->exists ) {
+    $self->log_debug("$file does not exist, not augmenting");
+    return %hash;
+  }
+  my $callback;
+  unless ( $callback = do $file->stringify ) {
+    $self->log("$file did not return a true value");
+    return %hash;
+  }
+  unless ( 'CODE' eq ref $callback || '' ) {
+    $self->log("$file did not return a coderef");
+    return %hash;
+  }
+  my ( $result, @extra ) = $callback->( \%hash );
+  if (@extra) {
+    $self->log_fatal("$file 's callback returned >1 item. Should return either a discardable single result or a hashref");
+  }
+  unless ( 'HASH' eq ref $result || '' ) {
+    $self->log_debug("$file 's callback returned a non-hashref, assuming inplace modification");
+    return %hash;
+  }
+  $self->log_debug("$file 's callback returned a hashref, its the new hashref");
+  return %{$result};
 }
 
 sub modify_travis_yml {
@@ -211,11 +243,49 @@ __PACKAGE__->meta->make_immutable;
   no_notify_email = 0
   coveralls = 0
 
+  modifier_script = path/to/a_script.pl
+
 =head1 DESCRIPTION
 
 Adds a B<.travis.yml> to your repository on B<build> or B<release>. This is a
 very early release, more features are planned and upcoming, including more
 documentation :).
+
+=attr modifier_script
+
+This is an advanced feature for people who fall into any of the following problems:
+
+=over 4
+
+=item * There is a new feature in Travis Spec that is not yet implemented in this plugin.
+
+=item * You have a generic set of configuration emitted by your C<@Bundle>, and you want
+a straight forward way to have unusual modifications to what is emitted local the distribution itself
+without having to add new features to your bundle or fuss with bundle decomposition.
+
+=back
+
+If set, this is a path to a perl script that will be called after generating
+the main C<YAML> structure.
+
+The usage will be familiar to PSGI users:
+
+  # some_script.pl
+  use strict;
+  use warnings;
+
+  sub {
+    my ( $hash ) = @_;
+    $hash->{sudo} = 'false';
+  };
+
+If you return anything other than a hashref, it will assume you meant to modify the hashref in place.
+
+If you return a hashref, that hashref will replace the existing configuration.
+
+If the script does not exist, the path specified will simply be ignored. ( Which will
+allow you to easily specify in your bundle a name to use for such a script without
+requiring such a script to be present )
 
 =head1 BASED ON
 
