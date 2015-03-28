@@ -8,7 +8,7 @@ use Dist::Zilla::File::FromCode;
 with 'Dist::Zilla::Role::FileGatherer','Dist::Zilla::Role::AfterBuild', 'Beam::Emitter';
 
 our @phases = ( ( map { my $phase = $_; ('before_'.$phase, $phase, 'after_'.$phase) } qw( install script ) ), 'after_success', 'after_failure' );
-our @emptymvarrayattr = qw( notify_email notify_irc requires env script_env extra_dep );
+our @emptymvarrayattr = qw( notify_email notify_irc requires env script_env extra_dep apt_package );
 
 has $_ => ( is => 'ro', isa => 'ArrayRef[Str]', default => sub { [] } ) for (@phases, @emptymvarrayattr);
 
@@ -92,6 +92,10 @@ sub build_travis_yml {
 
 	if (%notifications) {
 		$travisyml{notifications} = \%notifications;
+	}
+
+	if (@{$self->apt_package()}) {
+		$travisyml{addons}->{apt_packages} = $self->apt_package();
 	}
 
 	my %phases_commands = map { $_ => $self->$_ } @phases;
@@ -223,6 +227,7 @@ __PACKAGE__->meta->make_immutable;
   test_authordeps = 0
   no_notify_email = 0
   coveralls = 0
+  apt_package = libzmq1-dev
 
 =head1 DESCRIPTION
 
