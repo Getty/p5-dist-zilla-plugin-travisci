@@ -5,10 +5,10 @@ use Moose;
 use Path::Tiny qw( path );
 use Dist::Zilla::File::FromCode;
 
-with 'Dist::Zilla::Role::FileGatherer','Dist::Zilla::Role::AfterBuild';
+with 'Dist::Zilla::Role::FileGatherer','Dist::Zilla::Role::AfterBuild', 'Beam::Emitter';
 
 our @phases = ( ( map { my $phase = $_; ('before_'.$phase, $phase, 'after_'.$phase) } qw( install script ) ), 'after_success', 'after_failure' );
-our @emptymvarrayattr = qw( notify_email notify_irc requires env script_env extra_dep );
+our @emptymvarrayattr = qw( notify_email notify_irc requires env script_env extra_dep apt_package );
 
 has $_ => ( is => 'ro', isa => 'ArrayRef[Str]', default => sub { [] } ) for (@phases, @emptymvarrayattr);
 
@@ -95,6 +95,10 @@ sub build_travis_yml {
 		$travisyml{notifications} = \%notifications;
 	}
 
+	if (@{$self->apt_package()}) {
+		$travisyml{addons}->{apt_packages} = $self->apt_package();
+	}
+
 	my %phases_commands = map { $_ => $self->$_ } @phases;
 
 	my $verbose = $self->verbose ? ' --verbose ' : ' --quiet ';
@@ -172,8 +176,11 @@ sub build_travis_yml {
 		}
 	}
 
-  %travisyml = $self->modify_travis_yml(%travisyml);
-  return \%travisyml;
+  return $self->emit(
+    'modify_travis_yml',
+    class      => 'Dist::Zilla::Event::TravisCI::YML',
+    travis_yml => { $self->modify_travis_yml(%travisyml) }
+  )->travis_yml;
 }
 
 sub modify_travis_yml {
@@ -183,8 +190,17 @@ sub modify_travis_yml {
 
 __PACKAGE__->meta->make_immutable;
 
-1;
+package    # Hidden
+  Dist::Zilla::Event::TravisCI::YML;
 
+use Moose;
+extends 'Beam::Event';
+
+has 'travis_yml' => ( is => 'rw', isa => 'HashRef', required => 1 );
+
+__PACKAGE__->meta->make_immutable;
+
+1;
 
 =head1 SYNOPSIS
 
@@ -212,6 +228,7 @@ __PACKAGE__->meta->make_immutable;
   test_authordeps = 0
   no_notify_email = 0
   coveralls = 0
+  apt_package = libzmq1-dev
 
 =head1 DESCRIPTION
 
@@ -222,6 +239,34 @@ documentation :).
 =head1 BASED ON
 
 This plugin is based on code of L<Dist::Zilla::TravisCI>.
+
+=head1 EVENTS
+
+This module provides an event to allow modifying the C<travis_yml> data structure
+prior to writing it to file.
+
+=head2 C<modify_travis_yml>
+
+This event can be hooked with L<< C<[Beam::Connector]>|Dist::Zilla::Plugin::Beam::Connector >>
+in order to allow 3rd party plugins to modify the C<YAML> data.
+
+
+  ; Hook into another plugin from this
+  on = plugin:TravisCI#modify_travis_yml => plugin:AuthorTweaks#tweak_travis
+
+  ; Hook into an arbitrary class loaded by Beam
+  container = inc/beam.yml
+  on = plugin:TravisCI#modify_travis_yml => container:disttweaks#tweak_travis
+
+The recieving method(s) will recieve a C<Dist::Zilla::Event::TravisCI::YML> event to modify
+directly.
+
+  sub event_hander {
+    my ( $self , $event ) = @_;
+    push @{ $event->travis_yml->{env} }, 'AUTHOR_TESTING=1';
+  }
+
+B<< See L<< C<[Beam::Connector]>|Dist::Zilla::Plugin::Beam::Connector/Receiving Events >> for details. >>
 
 =head1 SUPPORT
 
