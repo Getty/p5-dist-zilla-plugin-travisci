@@ -155,10 +155,6 @@ sub build_travis_yml {
 		unshift @{$phases_commands{before_install}}, "sudo apt-get install -qq ".join(" ",@{$self->requires});
 	}
 
-	unshift @{$phases_commands{before_install}}, (
-		'rm .travis.yml',
-	);
-
 	push @{$phases_commands{install}}, @{delete $phases_commands{after_install}};
 
 	unshift @{$phases_commands{script}}, $self->_get_exports(@{$self->script_env});
