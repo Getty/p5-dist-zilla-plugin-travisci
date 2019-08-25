@@ -21,6 +21,7 @@ has irc_template  => ( is => 'ro', isa => 'ArrayRef[Str]', default => sub { [
 ] } );
 
 has perl_version  => ( is => 'ro', isa => 'ArrayRef[Str]', default => sub { [
+   "5.30",
    "5.28",
    "5.26",
    "5.24",
@@ -39,9 +40,9 @@ has 'write_to' => ( is => 'ro', isa => 'ArrayRef[Str]', default => sub { [ 'root
 our @core_env = ("HARNESS_OPTIONS=j10:c HARNESS_TIMER=1");
 
 around mvp_multivalue_args => sub {
-	my ($orig, $self) = @_;
+  my ($orig, $self) = @_;
 
-	my @start = $self->$orig;
+  my @start = $self->$orig;
   return @start, @phases, @emptymvarrayattr, qw( irc_template perl_version write_to );
 };
 
@@ -81,7 +82,16 @@ sub build_travis_yml {
 	my ($self, $is_build_branch) = @_;
 
 	my $zilla = $self->zilla;
-	my %travisyml = ( language => "perl", perl => $self->perl_version );
+	my %travisyml = (
+    language => "perl",
+    matrix => {
+      include => [ map {{
+        perl => sprintf('%.2f',$_),
+        ( $_ <= 5.20 ) ? ( dist => "trusty" ) : (),
+      }} @{$self->perl_version} ]
+    }
+  );
+
 	my $rmeta = $zilla->distmeta->{resources};
 
 	my %notifications;
