@@ -115,7 +115,7 @@ sub build_travis_yml {
 
   unshift @{$phases_commands{before_install}}, (
     'git config --global user.name "Dist Zilla Plugin TravisCI"',
-    'git config --global user.email $HOSTNAME":not-for-mail@travis-ci.org"',
+    'git config --global user.email $HOSTNAME":not-for-mail@travis-ci.com"',
   );
 
   my @extra_deps = @{$self->extra_dep};
@@ -243,9 +243,7 @@ __PACKAGE__->meta->make_immutable;
 
 =head1 DESCRIPTION
 
-Adds a B<.travis.yml> to your repository on B<build> or B<release>. This is a
-very early release, more features are planned and upcoming, including more
-documentation :).
+Adds a B<.travis.yml> to your repository on B<build> or B<release>.
 
 =head1 BASED ON
 
@@ -287,9 +285,9 @@ IRC
 
 Repository
 
-  http://github.com/Getty/p5-dist-zilla-plugin-travisci
+  https://github.com/Getty/p5-dist-zilla-plugin-travisci
   Pull request and additional contributors are welcome
  
 Issue Tracker
 
-  http://github.com/Getty/p5-dist-zilla-plugin-travisci/issues
+  https://github.com/Getty/p5-dist-zilla-plugin-travisci/issues
